@@ -1,0 +1,204 @@
+<!DOCTYPE>
+  <html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>example</title>
+
+  </head>
+  <!--
+library for jquery
+  -->
+  <script type='text/javascript' src='http://code.jquery.com/jquery-2.0.2.js'></script>
+  <script type="text/javascript" src="jquery-ui.js"></script>
+   <!--
+library for jquery
+  -->
+  <link rel="stylesheet" type="text/css" href="jquery-ui.css">
+   <link href="c3.css" rel="stylesheet" type="text/css">
+    <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+     <script src="c3.js"></script>
+  <body>
+	<select onchange ="selectors()" id="region">
+  		<option value="0">Select</option>
+  		<option value="1">North</option>
+  		<option value="2">South</option>
+  		<option value="3">East</option>
+  		<option value="4">West</option>
+	</select>
+	<table >
+  <tr>
+    <th>Region</th>
+    <th>Total Sales</th>		
+  </tr>
+  <tr>
+    <td id="region_value"></td>
+    <td id="region_sales"></td>		
+   
+  </tr>
+  
+</table>
+      <div id="time-range">
+          <p>Time Range: <span class="slider-time"></span> - <span class="slider-time2"></span>
+          </p>
+          
+          <div class="sliders_step1">
+              <div id="slider-range" onchange ="alert('nii')"></div>
+          </div>
+      </div>
+	 <div id="chart"></div>
+
+    <script type="text/javascript">
+    //from date ,todate 
+    var dt_from = "2010-11-01 ";
+    var dt_to = "2014-11-24 ";
+
+	// array for storing the local region and region values
+    var local_region =new Array();
+    var region_values =new Array();
+
+    // selecting the region like north,south, east,west based on the region calaculate the sales by backend.
+    function selectors(){
+      
+        var e = document.getElementById("region");
+        var region = e.options[e.selectedIndex].value;
+        
+        $.post("selector.php",
+                {
+                  region: region,
+                  flag :0
+                 
+                },
+                function(data){
+                	local_region.length =0;
+                	region_values.length =0;
+                	local_region.push(data);
+                
+                	region_values.push(region);
+                
+                   if(region == 1){
+                       $("#region_value").html("North");
+                       
+                       $("#region_sales").html(data);
+                       }
+                   else if(region == 2){
+                       $("#region_value").html("South");
+                       $("#region_sales").html(data);
+                       }
+                   else if(region ==3){
+                       $("#region_value").html("East");
+                       $("#region_sales").html(data);
+                       }else if(region == 4){
+                           $("#region_value").html("West");
+                           $("#region_sales").html(data);
+                           }
+                       else{
+                           
+                           }
+                   gauge_graph(dt_from,dt_to,region);
+                });
+    }
+    
+      // for slider     
+          $('.slider-time').html(dt_from);
+          $('.slider-time2').html(dt_to);
+          var min_val = Date.parse(dt_from)/1000;
+          var max_val = Date.parse(dt_to)/1000;
+
+          function zeroPad(num, places) {
+            var zero = places - num.toString().length + 1;
+            return Array(+(zero > 0 && zero)).join("0") + num;
+          }
+          function formatDT(__dt) {
+              var year = __dt.getFullYear();
+              var month = zeroPad(__dt.getMonth()+1, 2);
+              var date = zeroPad(__dt.getDate(), 2);
+              var hours = zeroPad(__dt.getHours(), 2);
+              var minutes = zeroPad(__dt.getMinutes(), 2);
+              var seconds = zeroPad(__dt.getSeconds(), 2);
+              return year + '-' + month + '-' + date ;
+          };
+
+
+          $("#slider-range").slider({
+             
+              range: true,
+              min: min_val,
+              max: max_val,
+              step: 10,
+              values: [min_val, max_val],
+              slide: function (e, ui) {
+              		
+                  var dt_cur_from = new Date(ui.values[0]*1000); //.format("yyyy-mm-dd hh:ii:ss");
+                  $('.slider-time').html(formatDT(dt_cur_from));
+					
+                  var dt_cur_to = new Date(ui.values[1]*1000); //.format("yyyy-mm-dd hh:ii:ss");                
+                  $('.slider-time2').html(formatDT(dt_cur_to));
+                  gauge_to_date = formatDT(dt_cur_to);
+                  gauge_from_date = formatDT(dt_cur_from);
+              	//alert(region_values+local_region+"j");
+              	//calling gaugae graph by using c3 
+                gauge_graph(gauge_from_date, gauge_to_date,region_values);
+              }
+         
+          });
+
+          // for calling gauge graph based on from to and region dates
+          function gauge_graph(from,to,region){
+             
+              if(region == "" || region ==0){
+            	  alert("please select a reason");
+            	  return;
+                  }
+        	  $.ajax({
+        	      url: 'selector.php',
+        	      data: {
+            	     from :from,
+            	     to:to,
+            	     region:region[0],
+        	         flag :1
+        	      },
+        	      type: 'POST',
+        	       success: function(data) {
+        	        
+        	         var chart = c3.generate({
+             	        data: {
+             	          columns: [
+             	            [ 'data', data ]
+             	          ],
+             	          type: 'gauge',
+             	          onmouseover: function (d, i) { console.log("onmouseover", d, i, this); },
+             	          onmouseout: function (d, i) { console.log("onmouseout", d, i, this); },
+             	          onclick: function (d, i) { console.log("onclick", d, i, this); },
+             	        },
+             	        gauge: {
+             	          label: {
+//             	            format: function(value, ratio) {
+//             	              return value;
+//             	            },
+//             	          show: false // to turn off the min/max labels.
+             	          },
+//             	          min: 0, // 0 is default, //can handle negative min e.g. vacuum / voltage / current flow / rate of change
+            	          max: 1000, 
+//             	          units: ' %',
+//             	          width: 39 // for adjusting arc thickness
+             	        },
+             	        color: {
+             	          pattern: ['#FF0000', '#F6C600', '#60B044'], // the three color levels for the percentage values.
+             	          threshold: {
+//             	            unit: 'value', // percentage is default
+           	            	//max: 2000, // 100 is default
+             	            values: [30, 60, 90] // alternate first value is 'value'
+             	          }
+             	        }
+             	      });
+        	      }
+        	   });
+        	 
+
+        	      
+        	      
+          }
+          
+    </script>
+  </body>
+</html>
